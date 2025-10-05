@@ -1,0 +1,398 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memorisaurio</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            background: url('images/fondo.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        #title {
+            font-size: 72px;
+            font-weight: bold;
+            color: #4a2c0e;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            -webkit-text-stroke: 1px #8b4513;
+            font-family: 'Impact', sans-serif;
+            margin-bottom: 20px;
+            text-align: center;
+            background: linear-gradient(to bottom, #d2a679, #8b4513);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        #controls {
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        #controls label {
+            font-weight: bold;
+            color: #4a2c0e;
+        }
+
+        #controls select, #controls button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+            background-color: #d2a679;
+            color: #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+        }
+
+        #controls button:hover {
+            background-color: #8b4513;
+        }
+
+        #game-board {
+            display: none;
+            grid-template-columns: repeat(4, 1fr); /* Valor inicial, se ajusta dinámicamente */
+            gap: 15px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            width: 100%; /* Ajuste dinámico al ancho de la pantalla */
+            max-width: 100%; /* Evitar desbordamiento */
+            box-sizing: border-box;
+            overflow: hidden; /* Asegurar que las cartas no se salgan */
+        }
+
+        .card {
+            width: 120px;
+            height: 120px;
+            perspective: 1500px;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: scale(1.05);
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            transform-style: preserve-3d;
+        }
+
+        .card.flip .card-inner {
+            transform: rotateY(180deg);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .card-front {
+            background: radial-gradient(circle, #81c784, #4CAF50);
+            color: #fff;
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .card-back {
+            transform: rotateY(180deg);
+            background-color: #fff;
+        }
+
+        .card-back img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 15px;
+        }
+
+        .card.matched {
+            pointer-events: none;
+            opacity: 0.9;
+        }
+
+        #timer {
+            margin-top: 10px;
+            font-size: 18px;
+            color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            display: none;
+        }
+
+        #message {
+            display: none;
+            margin-top: 20px;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+            background-color: rgba(0,0,0,0.7);
+            border-radius: 10px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        #message button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 5px;
+            background-color: #4CAF50;
+            color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #message button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div id="title">Memorisaurio</div>
+    <div id="controls">
+        <label for="size">Elige el tamaño (número de cartas):</label>
+        <select id="size">
+            <option value="8">8</option>
+            <option value="16">16</option>
+            <option value="32">32</option>
+        </select>
+        <button id="start">Iniciar Juego</button>
+    </div>
+    <div id="game-board"></div>
+    <div id="timer">Tiempo: 0 segundos</div>
+    <div id="message">
+        <p id="final-time"></p>
+        <button id="restart">Jugar de Nuevo</button>
+    </div>
+
+    <script>
+        const apiUrl = 'https://dinoapi.brunosouzadev.com/api/dinosaurs';
+        let board = document.getElementById('game-board');
+        let message = document.getElementById('message');
+        let timer = document.getElementById('timer');
+        let startButton = document.getElementById('start');
+        let restartButton = document.getElementById('restart');
+        let finalTime = document.getElementById('final-time');
+        let sizeSelect = document.getElementById('size');
+        let controls = document.getElementById('controls');
+        let title = document.getElementById('title');
+
+        let cards = [];
+        let firstCard = null;
+        let secondCard = null;
+        let lockBoard = false;
+        let matches = 0;
+        let startTime = null;
+        let interval = null;
+
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', resetToInitialScreen);
+
+        function resetToInitialScreen() {
+            controls.style.display = 'flex';
+            board.style.display = 'none';
+            timer.style.display = 'none';
+            message.style.display = 'none';
+            title.style.display = 'block';
+            board.innerHTML = '';
+            if (interval) clearInterval(interval);
+            cards = [];
+            firstCard = null;
+            secondCard = null;
+            lockBoard = false;
+            matches = 0;
+            startTime = null;
+        }
+
+        async function startGame() {
+            const size = parseInt(sizeSelect.value);
+            controls.style.display = 'none';
+            title.style.display = 'none';
+            message.style.display = 'none';
+            timer.textContent = 'Tiempo: 0 segundos';
+            timer.style.display = 'block';
+            board.innerHTML = '';
+            board.style.display = 'grid';
+            cards = [];
+            firstCard = null;
+            secondCard = null;
+            lockBoard = false;
+            matches = 0;
+            startTime = Date.now();
+            if (interval) clearInterval(interval);
+            interval = setInterval(updateTimer, 1000);
+
+            // Ajustar dinámicamente el grid según el tamaño
+            const columns = size <= 16 ? 4 : 8; // 4 columnas para 8 o 16, 8 para 32
+            board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+            const cardWidth = 120; // Ancho fijo de las cartas
+            const gap = 15; // Espacio entre cartas
+            const padding = 40; // Padding total (20px por lado)
+            const totalWidth = (columns * cardWidth) + ((columns - 1) * gap) + padding;
+            board.style.maxWidth = `${totalWidth}px`; // Ajustar max-width dinámicamente
+
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+
+                const shuffledDinos = data.sort(() => 0.5 - Math.random()).slice(0, size / 2);
+                const images = [...shuffledDinos, ...shuffledDinos].map(dino => dino.image);
+                images.sort(() => 0.5 - Math.random());
+
+                images.forEach((imgSrc, index) => {
+                    const card = document.createElement('div');
+                    card.classList.add('card');
+                    card.dataset.index = index;
+                    card.dataset.src = imgSrc;
+
+                    const inner = document.createElement('div');
+                    inner.classList.add('card-inner');
+
+                    const front = document.createElement('div');
+                    front.classList.add('card-front');
+                    front.textContent = '?';
+
+                    const back = document.createElement('div');
+                    back.classList.add('card-back');
+                    const img = document.createElement('img');
+                    img.src = imgSrc;
+                    back.appendChild(img);
+
+                    inner.appendChild(front);
+                    inner.appendChild(back);
+                    card.appendChild(inner);
+
+                    card.addEventListener('click', flipCard);
+                    board.appendChild(card);
+                    cards.push(card);
+                });
+            } catch (error) {
+                message.textContent = 'Error al cargar las imágenes de dinosaurios.';
+                message.style.display = 'block';
+                controls.style.display = 'flex';
+                timer.style.display = 'none';
+                board.style.display = 'none';
+                title.style.display = 'block';
+                clearInterval(interval);
+            }
+        }
+
+        function updateTimer() {
+            if (startTime) {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                timer.textContent = `Tiempo: ${elapsed} segundos`;
+            }
+        }
+
+        function flipCard() {
+            if (lockBoard || this === firstCard || this.classList.contains('flip') || this.classList.contains('matched')) return;
+
+            this.classList.add('flip');
+
+            if (!firstCard) {
+                firstCard = this;
+            } else {
+                secondCard = this;
+                lockBoard = true;
+                checkForMatch();
+            }
+        }
+
+        function checkForMatch() {
+            if (firstCard.dataset.src === secondCard.dataset.src) {
+                firstCard.classList.add('matched');
+                secondCard.classList.add('matched');
+                matches += 2;
+                resetBoard();
+                if (matches === cards.length) {
+                    const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                    finalTime.textContent = `¡Juego terminado! Completaste el juego en ${elapsed} segundos.`;
+                    message.style.display = 'block';
+                    board.style.display = 'none';
+                    timer.style.display = 'none';
+                    clearInterval(interval);
+                }
+            } else {
+                setTimeout(() => {
+                    firstCard.classList.remove('flip');
+                    secondCard.classList.remove('flip');
+                    resetBoard();
+                }, 1000);
+            }
+        }
+
+        function resetBoard() {
+            firstCard = null;
+            secondCard = null;
+            lockBoard = false;
+        }
+    </script>
+</body>
+</html>
