@@ -1,43 +1,4 @@
-<script type="text/javascript">
-        var gk_isXlsx = false;
-        var gk_xlsxFileLookup = {};
-        var gk_fileData = {};
-        function filledCell(cell) {
-          return cell !== '' && cell != null;
-        }
-        function loadFileData(filename) {
-        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
-            try {
-                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
-                var firstSheetName = workbook.SheetNames[0];
-                var worksheet = workbook.Sheets[firstSheetName];
-
-                // Convert sheet to JSON to filter blank rows
-                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
-                // Filter out blank rows (rows where all cells are empty, null, or undefined)
-                var filteredData = jsonData.filter(row => row.some(filledCell));
-
-                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
-                var headerRowIndex = filteredData.findIndex((row, index) =>
-                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
-                );
-                // Fallback
-                if (headerRowIndex === -1 || headerRowIndex > 25) {
-                  headerRowIndex = 0;
-                }
-
-                // Convert filtered JSON back to CSV
-                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
-                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
-                return csv;
-            } catch (e) {
-                console.error(e);
-                return "";
-            }
-        }
-        return gk_fileData[filename] || "";
-        }
-        </script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -96,6 +57,7 @@
             color: #fff;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             cursor: pointer;
+            font-size: 16px;
         }
 
         #controls button:hover {
@@ -104,16 +66,16 @@
 
         #game-board {
             display: none;
-            grid-template-columns: repeat(4, 1fr); /* Valor inicial, se ajusta dinámicamente */
-            gap: 15px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px; /* Reducido el gap para pantallas pequeñas */
             padding: 20px;
             background-color: rgba(255, 255, 255, 0.8);
             border-radius: 15px;
             box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            width: 100%; /* Ajuste dinámico al ancho de la pantalla */
-            max-width: 100%; /* Evitar desbordamiento */
+            width: 100%;
+            max-width: 100%;
             box-sizing: border-box;
-            overflow: hidden; /* Asegurar que las cartas no se salgan */
+            overflow: hidden;
         }
 
         .card {
@@ -212,6 +174,60 @@
         #message button:hover {
             background-color: #45a049;
         }
+
+        /* Consultas de medios para responsividad */
+        @media (max-width: 768px) {
+            #title {
+                font-size: 48px; /* Reducir tamaño del título en pantallas pequeñas */
+            }
+            #controls {
+                flex-direction: column;
+                gap: 10px;
+                padding: 15px;
+            }
+            #controls select, #controls button {
+                width: 100%;
+                font-size: 14px;
+            }
+            #game-board {
+                padding: 10px;
+                gap: 8px;
+            }
+            .card {
+                width: 80px;
+                height: 80px;
+            }
+            .card-front {
+                font-size: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #title {
+                font-size: 36px; /* Más pequeño en pantallas muy pequeñas */
+            }
+            #controls {
+                padding: 10px;
+            }
+            #game-board {
+                padding: 5px;
+                gap: 5px;
+            }
+            .card {
+                width: 60px;
+                height: 60px;
+            }
+            .card-front {
+                font-size: 18px;
+            }
+            #timer, #message {
+                font-size: 16px;
+            }
+            #message button {
+                padding: 8px 16px;
+                font-size: 16px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -290,11 +306,11 @@
             interval = setInterval(updateTimer, 1000);
 
             // Ajustar dinámicamente el grid según el tamaño
-            const columns = size <= 16 ? 4 : 8; // 4 columnas para 8 o 16, 8 para 32
+            const columns = size <= 16 ? 4 : 8;
             board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
-            const cardWidth = 120; // Ancho fijo de las cartas
-            const gap = 15; // Espacio entre cartas
-            const padding = 40; // Padding total (20px por lado)
+            const cardWidth = 120; // Ancho base de las cartas
+            const gap = 10; // Gap base
+            const padding = 40; // Padding total
             const totalWidth = (columns * cardWidth) + ((columns - 1) * gap) + padding;
             board.style.maxWidth = `${totalWidth}px`; // Ajustar max-width dinámicamente
 
