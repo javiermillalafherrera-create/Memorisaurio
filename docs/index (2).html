@@ -14,7 +14,7 @@
             height: 100vh;
             margin: 0;
             overflow: hidden;
-            background: url('images/fondo.jpeg') no-repeat center center fixed;
+            background: url('images/fondo.jpg') no-repeat center center fixed;
             background-size: cover;
         }
 
@@ -66,8 +66,7 @@
 
         #game-board {
             display: none;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 10px; /* Reducido el gap para pantallas pequeñas */
+            gap: 10px;
             padding: 20px;
             background-color: rgba(255, 255, 255, 0.8);
             border-radius: 15px;
@@ -176,9 +175,22 @@
         }
 
         /* Consultas de medios para responsividad */
+        @media (max-width: 1024px) {
+            #title {
+                font-size: 60px;
+            }
+            .card {
+                width: 100px;
+                height: 100px;
+            }
+            .card-front {
+                font-size: 24px;
+            }
+        }
+
         @media (max-width: 768px) {
             #title {
-                font-size: 48px; /* Reducir tamaño del título en pantallas pequeñas */
+                font-size: 48px;
             }
             #controls {
                 flex-direction: column;
@@ -190,7 +202,7 @@
                 font-size: 14px;
             }
             #game-board {
-                padding: 10px;
+                padding: 15px;
                 gap: 8px;
             }
             .card {
@@ -198,19 +210,19 @@
                 height: 80px;
             }
             .card-front {
-                font-size: 24px;
+                font-size: 20px;
             }
         }
 
         @media (max-width: 480px) {
             #title {
-                font-size: 36px; /* Más pequeño en pantallas muy pequeñas */
+                font-size: 36px;
             }
             #controls {
                 padding: 10px;
             }
             #game-board {
-                padding: 5px;
+                padding: 10px;
                 gap: 5px;
             }
             .card {
@@ -218,14 +230,14 @@
                 height: 60px;
             }
             .card-front {
-                font-size: 18px;
+                font-size: 16px;
             }
             #timer, #message {
-                font-size: 16px;
+                font-size: 14px;
             }
             #message button {
-                padding: 8px 16px;
-                font-size: 16px;
+                padding: 6px 12px;
+                font-size: 14px;
             }
         }
     </style>
@@ -305,14 +317,14 @@
             if (interval) clearInterval(interval);
             interval = setInterval(updateTimer, 1000);
 
-            // Ajustar dinámicamente el grid según el tamaño
-            const columns = size <= 16 ? 4 : 8;
+            // Ajustar dinámicamente las columnas según el tamaño y el espacio disponible
+            let columns = 4;
+            if (size === 32 && window.innerWidth >= 768) {
+                columns = 8; // Solo 8 columnas en pantallas grandes
+            } else if (size >= 16 && window.innerWidth >= 480) {
+                columns = 4; // 4 columnas para 16 o más en pantallas medianas
+            }
             board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
-            const cardWidth = 120; // Ancho base de las cartas
-            const gap = 10; // Gap base
-            const padding = 40; // Padding total
-            const totalWidth = (columns * cardWidth) + ((columns - 1) * gap) + padding;
-            board.style.maxWidth = `${totalWidth}px`; // Ajustar max-width dinámicamente
 
             try {
                 const response = await fetch(apiUrl);
