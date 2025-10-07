@@ -57,7 +57,6 @@
             color: #fff;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             cursor: pointer;
-            font-size: 16px;
         }
 
         #controls button:hover {
@@ -66,7 +65,8 @@
 
         #game-board {
             display: none;
-            gap: 10px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
             padding: 20px;
             background-color: rgba(255, 255, 255, 0.8);
             border-radius: 15px;
@@ -174,18 +174,49 @@
             background-color: #45a049;
         }
 
-        /* Consultas de medios para responsividad */
-        @media (max-width: 1024px) {
-            #title {
-                font-size: 60px;
-            }
-            .card {
-                width: 100px;
-                height: 100px;
-            }
-            .card-front {
-                font-size: 24px;
-            }
+        #dino-modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+
+        #dino-modal-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 10px;
+        }
+
+        #close-dino-modal {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #close-dino-modal:hover {
+            color: black;
+        }
+
+        #dino-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        #dino-diet, #dino-period, #dino-length {
+            font-size: 16px;
+            margin-bottom: 5px;
         }
 
         @media (max-width: 768px) {
@@ -202,7 +233,7 @@
                 font-size: 14px;
             }
             #game-board {
-                padding: 15px;
+                padding: 10px;
                 gap: 8px;
             }
             .card {
@@ -210,7 +241,17 @@
                 height: 80px;
             }
             .card-front {
+                font-size: 24px;
+            }
+            #dino-modal-content {
+                width: 90%;
+                margin: 20% auto;
+            }
+            #dino-name {
                 font-size: 20px;
+            }
+            #dino-diet, #dino-period, #dino-length {
+                font-size: 14px;
             }
         }
 
@@ -222,7 +263,7 @@
                 padding: 10px;
             }
             #game-board {
-                padding: 10px;
+                padding: 5px;
                 gap: 5px;
             }
             .card {
@@ -230,14 +271,24 @@
                 height: 60px;
             }
             .card-front {
-                font-size: 16px;
+                font-size: 18px;
             }
             #timer, #message {
-                font-size: 14px;
+                font-size: 16px;
             }
             #message button {
-                padding: 6px 12px;
-                font-size: 14px;
+                padding: 8px 16px;
+                font-size: 16px;
+            }
+            #dino-modal-content {
+                margin: 30% auto;
+                padding: 15px;
+            }
+            #dino-name {
+                font-size: 18px;
+            }
+            #dino-diet, #dino-period, #dino-length {
+                font-size: 12px;
             }
         }
     </style>
@@ -255,6 +306,15 @@
     </div>
     <div id="game-board"></div>
     <div id="timer">Tiempo: 0 segundos</div>
+    <div id="dino-modal">
+        <div id="dino-modal-content">
+            <span id="close-dino-modal">&times;</span>
+            <h2 id="dino-name"></h2>
+            <p id="dino-diet"></p>
+            <p id="dino-period"></p>
+            <p id="dino-length"></p>
+        </div>
+    </div>
     <div id="message">
         <p id="final-time"></p>
         <button id="restart">Jugar de Nuevo</button>
@@ -271,6 +331,12 @@
         let sizeSelect = document.getElementById('size');
         let controls = document.getElementById('controls');
         let title = document.getElementById('title');
+        let dinoModal = document.getElementById('dino-modal');
+        let closeDinoModal = document.getElementById('close-dino-modal');
+        let dinoName = document.getElementById('dino-name');
+        let dinoDiet = document.getElementById('dino-diet');
+        let dinoPeriod = document.getElementById('dino-period');
+        let dinoLength = document.getElementById('dino-length');
 
         let cards = [];
         let firstCard = null;
@@ -280,6 +346,10 @@
         let startTime = null;
         let interval = null;
 
+        closeDinoModal.addEventListener('click', () => {
+            dinoModal.style.display = 'none';
+        });
+
         startButton.addEventListener('click', startGame);
         restartButton.addEventListener('click', resetToInitialScreen);
 
@@ -288,6 +358,7 @@
             board.style.display = 'none';
             timer.style.display = 'none';
             message.style.display = 'none';
+            dinoModal.style.display = 'none';
             title.style.display = 'block';
             board.innerHTML = '';
             if (interval) clearInterval(interval);
@@ -297,6 +368,24 @@
             lockBoard = false;
             matches = 0;
             startTime = null;
+        }
+
+        function translateDiet(diet) {
+            const diets = {
+                'herbivore': 'Herbívoro',
+                'carnivore': 'Carnívoro',
+                'omnivore': 'Omnívoro'
+            };
+            return diets[diet.toLowerCase()] || diet;
+        }
+
+        function translatePeriod(period) {
+            const periods = {
+                'triassic': 'Triásico',
+                'jurassic': 'Jurásico',
+                'cretaceous': 'Cretácico'
+            };
+            return periods[period.toLowerCase()] || period;
         }
 
         async function startGame() {
@@ -317,28 +406,31 @@
             if (interval) clearInterval(interval);
             interval = setInterval(updateTimer, 1000);
 
-            // Ajustar dinámicamente las columnas según el tamaño y el espacio disponible
-            let columns = 4;
-            if (size === 32 && window.innerWidth >= 768) {
-                columns = 8; // Solo 8 columnas en pantallas grandes
-            } else if (size >= 16 && window.innerWidth >= 480) {
-                columns = 4; // 4 columnas para 16 o más en pantallas medianas
-            }
+            const columns = size <= 16 ? 4 : 8;
             board.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+            const cardWidth = 120;
+            const gap = 15;
+            const padding = 40;
+            const totalWidth = (columns * cardWidth) + ((columns - 1) * gap) + padding;
+            board.style.maxWidth = `${totalWidth}px`;
 
             try {
                 const response = await fetch(apiUrl);
                 const data = await response.json();
 
                 const shuffledDinos = data.sort(() => 0.5 - Math.random()).slice(0, size / 2);
-                const images = [...shuffledDinos, ...shuffledDinos].map(dino => dino.image);
-                images.sort(() => 0.5 - Math.random());
+                const dinos = [...shuffledDinos, ...shuffledDinos];
+                dinos.sort(() => 0.5 - Math.random());
 
-                images.forEach((imgSrc, index) => {
+                dinos.forEach((dino, index) => {
                     const card = document.createElement('div');
                     card.classList.add('card');
                     card.dataset.index = index;
-                    card.dataset.src = imgSrc;
+                    card.dataset.name = dino.name;
+                    card.dataset.diet = dino.diet;
+                    card.dataset.period = dino.period;
+                    card.dataset.length = dino.length; // Agregada característica de longitud
+                    card.dataset.image = dino.image;
 
                     const inner = document.createElement('div');
                     inner.classList.add('card-inner');
@@ -350,7 +442,7 @@
                     const back = document.createElement('div');
                     back.classList.add('card-back');
                     const img = document.createElement('img');
-                    img.src = imgSrc;
+                    img.src = dino.image;
                     back.appendChild(img);
 
                     inner.appendChild(front);
@@ -394,10 +486,11 @@
         }
 
         function checkForMatch() {
-            if (firstCard.dataset.src === secondCard.dataset.src) {
+            if (firstCard.dataset.image === secondCard.dataset.image) {
                 firstCard.classList.add('matched');
                 secondCard.classList.add('matched');
                 matches += 2;
+                showDinoInfo(firstCard);
                 resetBoard();
                 if (matches === cards.length) {
                     const elapsed = Math.floor((Date.now() - startTime) / 1000);
@@ -414,6 +507,19 @@
                     resetBoard();
                 }, 1000);
             }
+        }
+
+        function showDinoInfo(card) {
+            const name = card.dataset.name.charAt(0).toUpperCase() + card.dataset.name.slice(1);
+            const diet = translateDiet(card.dataset.diet);
+            const period = translatePeriod(card.dataset.period);
+            const length = card.dataset.length;
+
+            dinoName.textContent = name;
+            dinoDiet.textContent = `Dieta: ${diet}`;
+            dinoPeriod.textContent = `Período: ${period}`;
+            dinoLength.textContent = `Longitud: ${length}`;
+            dinoModal.style.display = 'block';
         }
 
         function resetBoard() {
